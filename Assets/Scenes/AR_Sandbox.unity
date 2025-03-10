@@ -153,6 +153,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   frameSource: {fileID: 666562853}
   depthImage: {fileID: 1600213977}
+  blurMaterial: {fileID: 2100000, guid: c6f1bf7c07125e14ea136022ce439fb5, type: 2}
   minDepth: 0.6
   maxDepth: 0.8
 --- !u!4 &488352438
