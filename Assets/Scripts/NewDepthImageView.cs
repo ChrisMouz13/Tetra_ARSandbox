@@ -14,8 +14,8 @@ public class NewDepthImageView : MonoBehaviour
     private RenderTexture tempRT2; // Δεύτερο RenderTexture
 
     // ✅ Μετράμε από 1.0m (επιφάνεια) έως 0.8m (βάθος άμμου)
-    public float minDepth = 0.8f;  // Κατώτερο σημείο (βάθος άμμου)
-    public float maxDepth = 1.0f;  // Επιφάνεια της άμμου
+    public float minDepth = 0.6f;  // Κατώτερο σημείο (βάθος άμμου)
+    public float maxDepth = 0.8f;  // Επιφάνεια της άμμου
     private float gamma = 0.8f; // ✅ Τιμή gamma για Contrast Enhancement
 
     void Start()

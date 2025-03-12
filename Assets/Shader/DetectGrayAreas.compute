@@ -1,0 +1,48 @@
+﻿#pragma kernel CSMain
+
+// Είσοδος: Το depth texture (blurred)
+Texture2D<float4> _DepthTex;
+
+// Μετρητής γκρι περιοχών
+RWStructuredBuffer<uint> _GrayRegionCount;
+
+// Πίνακας με bounding boxes των περιοχών (minX, minY, maxX, maxY)
+RWStructuredBuffer<uint4> _GrayBoundingBoxes;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	uint2 coords = id.xy;
+	float4 color = _DepthTex[coords];
+
+	// ✅ Debug: Δοκιμή αν το depth texture περιέχει δεδομένα
+	if (id.x == 512 && id.y == 512) // Δοκιμή στο κέντρο
+	{
+		printf("🔍 Pixel at (512,512): RGB(%f, %f, %f)\n", color.r, color.g, color.b);
+	}
+
+	// Ανίχνευση γκρι περιοχών
+	float grayThreshold = 0.1;
+	float diffRG = abs(color.r - color.g);
+	float diffGB = abs(color.g - color.b);
+	float diffBR = abs(color.b - color.r);
+
+	if (diffRG < grayThreshold && diffGB < grayThreshold && diffBR < grayThreshold)
+	{
+		// ✅ Debug: Ανιχνεύσαμε γκρι pixel
+		printf("🎯 Gray Pixel at (%d, %d)\n", coords.x, coords.y);
+
+		// Βρίσκουμε ποια περιοχή ανήκει το pixel
+		uint regionIndex;
+		InterlockedAdd(_GrayRegionCount[0], 1, regionIndex);
+
+		if (regionIndex < 100) // Περιορίζουμε τον αριθμό των περιοχών
+		{
+			// Χρησιμοποιούμε unsigned (uint) τύπους για να αποφύγουμε το warning
+			InterlockedMin(_GrayBoundingBoxes[regionIndex].x, coords.x); // minX
+			InterlockedMin(_GrayBoundingBoxes[regionIndex].y, coords.y); // minY
+			InterlockedMax(_GrayBoundingBoxes[regionIndex].z, coords.x); // maxX
+			InterlockedMax(_GrayBoundingBoxes[regionIndex].w, coords.y); // maxY
+		}
+	}
+}
