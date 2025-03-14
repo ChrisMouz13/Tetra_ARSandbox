@@ -4,32 +4,31 @@ using UnityEngine.UI;
 
 public class GrayAreaDetector : MonoBehaviour
 {
-    public NewDepthImageView depthImageView; // Αναφορά στο NewDepthImageView
-    public GameObject boundingBoxPrefab; // Το prefab που θα εμφανίζεται
-    public RectTransform rawImageTransform; // Το RawImage στο οποίο εμφανίζεται ο depth χάρτης
+    public NewDepthImageView depthImageView;
+    public GameObject boundingBoxPrefab;
+    public RectTransform rawImageTransform;
 
-    public int downsampleFactor = 2; // Εξετάζουμε κάθε 2ο pixel για απόδοση
+    public int downsampleFactor = 2;
     public float grayThreshold = 0.1f;
-    public List<Rect> detectedGrayRegions = new List<Rect>();
+    public int maxDetectedRegions = 5; // ✅ Ανώτατο όριο ηφαιστείων
+    public float positionThreshold = 50f;
+    public float despawnTime = 3f;
 
-    private Dictionary<int, GameObject> activeBoundingBoxes = new Dictionary<int, GameObject>();
+    private List<Rect> detectedGrayRegions = new List<Rect>();
+    List<GameObject> activePrefabs = new List<GameObject>(); // ✅ Διατηρούμε χειροκίνητα λίστα με τα ενεργά Prefabs
 
-    private const int MinRegionSize = 100; // Ελάχιστο μέγεθος περιοχής 100x100 pixels
+    private const int MinRegionSize = 200;
+    private const float minYLimit = 224f;  // ✅ Κάτω όριο προβολής
+    private const float maxYLimit = 800f;  // ✅ Πάνω όριο προβολής
 
     void Update()
     {
         if (depthImageView == null || depthImageView.depthImage.texture == null)
-        {
-            Debug.LogWarning("GrayAreaDetector: Depth texture not ready.");
             return;
-        }
 
         Texture2D depthTexture = depthImageView.depthImage.texture as Texture2D;
         if (depthTexture == null)
-        {
-            Debug.LogWarning("GrayAreaDetector: Depth texture is not a Texture2D.");
             return;
-        }
 
         DetectGrayRegions(depthTexture);
         UpdateBoundingBoxes();
@@ -49,83 +48,20 @@ public class GrayAreaDetector : MonoBehaviour
             {
                 if (visited[x, y]) continue;
 
-                Color pixel = pixels[y * width + x];
-                if (IsGray(pixel))
+                if (IsGray(pixels[y * width + x]))
                 {
-                    List<Vector2Int> cluster = new List<Vector2Int>();
-                    FloodFill(x, y, pixels, visited, width, height, cluster);
+                    Rect boundingBox = GetRegionBounds(x, y, pixels, visited, width, height);
 
-                    Rect boundingBox = CalculateBoundingBox(cluster);
-
-                    if (boundingBox.width >= MinRegionSize && boundingBox.height >= MinRegionSize)
+                    if (boundingBox.width > 50 && boundingBox.height > 50)
                     {
                         detectedGrayRegions.Add(boundingBox);
+
+                        // ✅ Αν φτάσαμε το όριο των 5, σταματάμε
+                        if (detectedGrayRegions.Count >= maxDetectedRegions)
+                            return;
                     }
                 }
             }
-        }
-    }
-
-    void UpdateBoundingBoxes()
-    {
-        // Δημιουργούμε ή ενημερώνουμε τα bounding boxes, χωρίς να αλλάζουμε το μέγεθός τους
-        for (int i = 0; i < detectedGrayRegions.Count; i++)
-        {
-            Rect region = detectedGrayRegions[i];
-
-            // Υπολογίζουμε το κέντρο της γκρι περιοχής
-            float centerX = region.x + region.width / 2;
-            float centerY = region.y + region.height / 2;
-
-            // Αν υπάρχει ήδη το prefab, απλά ενημερώνουμε τη θέση του
-            if (activeBoundingBoxes.ContainsKey(i))
-            {
-                RectTransform existingRect = activeBoundingBoxes[i].GetComponent<RectTransform>();
-
-                // Υπολογισμός θέσης στο RawImage
-                float rawWidth = rawImageTransform.rect.width;
-                float rawHeight = rawImageTransform.rect.height;
-
-                float uiX = Mathf.Lerp(0, rawWidth, centerX / 1024f);
-                float uiY = Mathf.Lerp(rawHeight, 0, centerY / 1024f);
-
-                // Ενημερώνουμε μόνο τη θέση
-                existingRect.anchoredPosition = new Vector2(uiX - rawWidth / 2, uiY - rawHeight / 2);
-            }
-            else
-            {
-                // Δημιουργούμε νέο prefab αν δεν υπάρχει ήδη
-                GameObject box = Instantiate(boundingBoxPrefab, rawImageTransform);
-                RectTransform rect = box.GetComponent<RectTransform>();
-
-                float rawWidth = rawImageTransform.rect.width;
-                float rawHeight = rawImageTransform.rect.height;
-
-                float uiX = Mathf.Lerp(0, rawWidth, centerX / 1024f);
-                float uiY = Mathf.Lerp(rawHeight, 0, centerY / 1024f);
-
-                rect.anchoredPosition = new Vector2(uiX - rawWidth / 2, uiY - rawHeight / 2);
-
-                // **Κρατάμε το αρχικό μέγεθος του prefab!**
-                rect.sizeDelta = boundingBoxPrefab.GetComponent<RectTransform>().sizeDelta;
-
-                activeBoundingBoxes[i] = box;
-            }
-        }
-
-        // **Αφαιρούμε τα παραπανίσια prefabs αν μειωθεί ο αριθμός των γκρι περιοχών**
-        List<int> keysToRemove = new List<int>();
-        foreach (var key in activeBoundingBoxes.Keys)
-        {
-            if (key >= detectedGrayRegions.Count)
-            {
-                Destroy(activeBoundingBoxes[key]);
-                keysToRemove.Add(key);
-            }
-        }
-        foreach (var key in keysToRemove)
-        {
-            activeBoundingBoxes.Remove(key);
         }
     }
 
@@ -134,46 +70,101 @@ public class GrayAreaDetector : MonoBehaviour
         float diffRG = Mathf.Abs(pixel.r - pixel.g);
         float diffGB = Mathf.Abs(pixel.g - pixel.b);
         float diffBR = Mathf.Abs(pixel.b - pixel.r);
+
         return diffRG < grayThreshold && diffGB < grayThreshold && diffBR < grayThreshold;
     }
 
-    void FloodFill(int x, int y, Color[] pixels, bool[,] visited, int width, int height, List<Vector2Int> cluster)
+    Rect GetRegionBounds(int startX, int startY, Color[] pixels, bool[,] visited, int width, int height)
     {
-        Queue<Vector2Int> queue = new Queue<Vector2Int>();
-        queue.Enqueue(new Vector2Int(x, y));
+        int maxX = startX, maxY = startY;
+        int minX = startX, minY = startY;
 
-        while (queue.Count > 0)
+        for (int y = startY; y < height; y++)
         {
-            Vector2Int pixel = queue.Dequeue();
-            int px = pixel.x;
-            int py = pixel.y;
+            if (!IsGray(pixels[y * width + startX])) break;
 
-            if (px < 0 || py < 0 || px >= width || py >= height || visited[px, py]) continue;
-            if (!IsGray(pixels[py * width + px])) continue;
+            for (int x = startX; x < width; x++)
+            {
+                if (!IsGray(pixels[y * width + x]) || visited[x, y]) break;
+                visited[x, y] = true;
 
-            visited[px, py] = true;
-            cluster.Add(new Vector2Int(px, py));
-
-            queue.Enqueue(new Vector2Int(px + 1, py));
-            queue.Enqueue(new Vector2Int(px - 1, py));
-            queue.Enqueue(new Vector2Int(px, py + 1));
-            queue.Enqueue(new Vector2Int(px, py - 1));
-        }
-    }
-
-    Rect CalculateBoundingBox(List<Vector2Int> cluster)
-    {
-        int minX = int.MaxValue, minY = int.MaxValue;
-        int maxX = int.MinValue, maxY = int.MinValue;
-
-        foreach (var point in cluster)
-        {
-            if (point.x < minX) minX = point.x;
-            if (point.y < minY) minY = point.y;
-            if (point.x > maxX) maxX = point.x;
-            if (point.y > maxY) maxY = point.y;
+                if (x > maxX) maxX = x;
+                if (y > maxY) maxY = y;
+            }
         }
 
         return new Rect(minX, minY, maxX - minX, maxY - minY);
     }
+
+    void UpdateBoundingBoxes()
+    {
+        List<GameObject> newActivePrefabs = new List<GameObject>();
+
+        foreach (var region in detectedGrayRegions)
+        {
+            float centerX = region.x + region.width / 2;
+            float centerY = region.y + region.height / 2;
+
+            float rawWidth = rawImageTransform.rect.width;
+            float rawHeight = rawImageTransform.rect.height;
+
+            float uiX = (centerX / 1024f) * rawWidth - rawWidth / 2;
+            float uiY = (centerY / 1024f) * rawHeight - rawHeight / 2;
+
+            // ✅ Φιλτράρουμε τις περιοχές που είναι εκτός της ωφέλιμης προβολής
+            if (centerY < minYLimit || centerY > maxYLimit)
+                continue;
+
+            bool existingFound = false;
+
+            foreach (var prefab in activePrefabs)
+            {
+                Vector2 existingPos = prefab.GetComponent<RectTransform>().anchoredPosition;
+                Vector2 newPos = new Vector2(uiX, uiY);
+
+                if (Vector2.Distance(existingPos, newPos) < positionThreshold)
+                {
+                    newActivePrefabs.Add(prefab);
+                    existingFound = true;
+                    break;
+                }
+            }
+
+            if (!existingFound && newActivePrefabs.Count < maxDetectedRegions)
+            {
+                SpawnVolcano(new Vector2(uiX, uiY)); // ✅ Διορθωμένη κλήση!
+            }
+        }
+
+        // ✅ Καθαρίζουμε τα Prefabs που είναι ανενεργά
+        foreach (var prefab in activePrefabs)
+        {
+            if (!newActivePrefabs.Contains(prefab))
+            {
+                Destroy(prefab);
+            }
+        }
+
+        activePrefabs = newActivePrefabs;
+    }
+
+    void SpawnVolcano(Vector2 position)
+    {
+        if (activePrefabs.Count >= maxDetectedRegions)
+        {
+            Debug.Log("[LIMIT] Max number of volcanoes reached.");
+            return;
+        }
+
+        GameObject box = Instantiate(boundingBoxPrefab, rawImageTransform);
+        RectTransform rect = box.GetComponent<RectTransform>();
+
+        rect.anchoredPosition = position;
+        rect.sizeDelta = boundingBoxPrefab.GetComponent<RectTransform>().sizeDelta;
+
+        activePrefabs.Add(box);
+
+        Debug.Log($"[SPAWN] New volcano spawned at {position}. Total now: {activePrefabs.Count}");
+    }
+
 }

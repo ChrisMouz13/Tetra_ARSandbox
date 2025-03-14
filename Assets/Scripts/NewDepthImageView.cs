@@ -13,13 +13,15 @@ public class NewDepthImageView : MonoBehaviour
     private RenderTexture tempRT1; // Πρώτο RenderTexture
     private RenderTexture tempRT2; // Δεύτερο RenderTexture
 
-    // ✅ Μετράμε από 1.0m (επιφάνεια) έως 0.8m (βάθος άμμου)
-    public float minDepth = 0.6f;  // Κατώτερο σημείο (βάθος άμμου)
-    public float maxDepth = 0.8f;  // Επιφάνεια της άμμου
+    // ✅ Μετράμε από 1.0m (επιφάνεια) έως 0.8m (βάθος άμμου). 
+    public float FarestDepth = 0.6f;  // Κατώτερο σημείο (βάθος άμμου)
+    public float NearestDepth = 0.8f;  // Επιφάνεια της άμμου
+    //Αν η καμερα μπει 1.5μ πανω απο την επιφανεια της αμμου τοτε λογικά το FarestDepth = 1.7f και το NearestDepth = 1.5f.
+
     private float gamma = 0.8f; // ✅ Τιμή gamma για Contrast Enhancement
 
     void Start()
-    {
+    { 
         if (frameSource == null || depthImage == null)
         {
             Debug.LogError("Frame Source or Depth Image not assigned!");
@@ -72,11 +74,11 @@ public class NewDepthImageView : MonoBehaviour
 
                 if (depthInMeters == 0)
                 {
-                    colors[flippedIndex] = Color.black;
+                    colors[flippedIndex] = Color.gray;
                     continue;
                 }
 
-                float normalizedDepth = Mathf.InverseLerp(maxDepth, minDepth, depthInMeters);
+                float normalizedDepth = Mathf.InverseLerp(NearestDepth, FarestDepth, depthInMeters);
                 normalizedDepth = Mathf.Pow(normalizedDepth, gamma);
                 colors[flippedIndex] = GetColorFromDepth(normalizedDepth);
             }
