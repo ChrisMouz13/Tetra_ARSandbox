@@ -154,8 +154,8 @@ MonoBehaviour:
   frameSource: {fileID: 666562853}
   depthImage: {fileID: 1600213977}
   blurMaterial: {fileID: 2100000, guid: f4e7f8c7eb8ae1f4cb59d3a241b750a1, type: 2}
-  minDepth: 0.6
-  maxDepth: 0.8
+  FarestDepth: 0.6
+  NearestDepth: 0.8
 --- !u!4 &488352438
 Transform:
   m_ObjectHideFlags: 0
@@ -301,7 +301,7 @@ Transform:
   m_GameObject: {fileID: 666562844}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -10}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
