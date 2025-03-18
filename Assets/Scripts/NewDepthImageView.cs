@@ -13,15 +13,14 @@ public class NewDepthImageView : MonoBehaviour
     private RenderTexture tempRT1; // Πρώτο RenderTexture
     private RenderTexture tempRT2; // Δεύτερο RenderTexture
 
-    // ✅ Μετράμε από 1.0m (επιφάνεια) έως 0.8m (βάθος άμμου). 
-    public float FarestDepth = 0.6f;  // Κατώτερο σημείο (βάθος άμμου)
-    public float NearestDepth = 0.8f;  // Επιφάνεια της άμμου
-    //Αν η καμερα μπει 1.5μ πανω απο την επιφανεια της αμμου τοτε λογικά το FarestDepth = 1.7f και το NearestDepth = 1.5f.
+    // ✅ Μετράμε από 0.64m (πάτωμα - πιο βαθύ σημείο) έως 0.44m (πιο ρηχό σημείο)
+    public float FarestDepth = 1.1f;  // ✅ Κατώτερο σημείο (βάθος - πάτωμα)
+    public float NearestDepth = 0.9f;  // ✅ Επιφάνεια (πιο κοντά στην κάμερα)
 
     private float gamma = 0.8f; // ✅ Τιμή gamma για Contrast Enhancement
 
     void Start()
-    { 
+    {
         if (frameSource == null || depthImage == null)
         {
             Debug.LogError("Frame Source or Depth Image not assigned!");
@@ -60,25 +59,39 @@ public class NewDepthImageView : MonoBehaviour
         ushort[] depthData = new ushort[depthFrame.data.Length / 2];
         Buffer.BlockCopy(depthFrame.data, 0, depthData, 0, depthFrame.data.Length);
 
-        // **Χρήση των minDepth και maxDepth**
+        // ✅ **Διόρθωση Προοπτικής με βάση το FOV της κάμερας**
+        float fovY = 69f; // Τυπικό FOV για Orbbec Femto Bolt
+        float aspectRatio = (float)width / height;
+        float fovX = 2f * Mathf.Atan(Mathf.Tan(fovY * Mathf.Deg2Rad / 2f) * aspectRatio) * Mathf.Rad2Deg;
+
         for (int y = 0; y < height; y++)
         {
-            int flippedY = height - 1 - y; // Αντιστροφή του Y άξονα
+            int flippedY = height - 1 - y; // ✅ Αντιστροφή του Y άξονα
 
             for (int x = 0; x < width; x++)
             {
                 int index = y * width + x;
                 int flippedIndex = flippedY * width + x;
 
-                float depthInMeters = depthData[index] * 0.001f;
-
+                float depthInMeters = depthData[index] * 0.001f; // ✅ Μετατροπή από mm σε μέτρα
                 if (depthInMeters == 0)
                 {
-                    colors[flippedIndex] = Color.gray;
+                    colors[flippedIndex] = Color.gray; // ✅ Αντιμετώπιση 0-depth values
                     continue;
                 }
 
-                float normalizedDepth = Mathf.InverseLerp(NearestDepth, FarestDepth, depthInMeters);
+                // ✅ **Υπολογισμός γωνίας pixel (προοπτική διόρθωση)**
+                float normalizedX = (x - width / 2f) / width;   // Απόσταση από το κέντρο [-0.5, 0.5]
+                float normalizedY = (y - height / 2f) / height; // Απόσταση από το κέντρο [-0.5, 0.5]
+
+                float angleX = normalizedX * fovX * Mathf.Deg2Rad;
+                float angleY = normalizedY * fovY * Mathf.Deg2Rad;
+
+                // ✅ **Εφαρμογή διόρθωσης προοπτικής**
+                float correctedDepth = depthInMeters / (Mathf.Cos(angleX) * Mathf.Cos(angleY));
+
+                // ✅ **Κανονικοποίηση βάθους βάσει του διορθωμένου βάθους**
+                float normalizedDepth = Mathf.InverseLerp(FarestDepth, NearestDepth, correctedDepth); // ισως να πρεπει να παει (NearestDepth, FarestDepth, correctedDepth) 
                 normalizedDepth = Mathf.Pow(normalizedDepth, gamma);
                 colors[flippedIndex] = GetColorFromDepth(normalizedDepth);
             }
@@ -86,7 +99,7 @@ public class NewDepthImageView : MonoBehaviour
 
         depthTexture.SetPixels(colors);
         depthTexture.Apply();
-        ApplyGPUBlur(); // ✅ Αντί για ApplyBoxBlur, καλούμε τον Shader
+        ApplyGPUBlur();
     }
 
     private void ApplyGPUBlur()
@@ -112,15 +125,6 @@ public class NewDepthImageView : MonoBehaviour
             depthTexture.Apply();
             RenderTexture.active = null;
         }
-    }
-
-    private bool IsOutsideVisibleRegion(int x, int y, int width, int height)
-    {
-        int centerX = width / 2;
-        int centerY = height / 2;
-        int dx = Mathf.Abs(x - centerX);
-        int dy = Mathf.Abs(y - centerY);
-        return (dx + dy > centerX);
     }
 
     private Color GetColorFromDepth(float normalizedDepth)
