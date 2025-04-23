@@ -13,7 +13,7 @@ public class NewDepthImageView : MonoBehaviour
     private RenderTexture tempRT1; // Πρώτο RenderTexture
     private RenderTexture tempRT2; // Δεύτερο RenderTexture
 
-    // ✅ Μετράμε από 0.64m (πάτωμα - πιο βαθύ σημείο) έως 0.44m (πιο ρηχό σημείο)
+    // ✅ Μετράμε από 1.1m (πάτωμα - πιο βαθύ σημείο) έως 0.44m (πιο ρηχό σημείο)
     public float FarestDepth = 1.1f;  // ✅ Κατώτερο σημείο (βάθος - πάτωμα)
     public float NearestDepth = 0.9f;  // ✅ Επιφάνεια (πιο κοντά στην κάμερα)
 

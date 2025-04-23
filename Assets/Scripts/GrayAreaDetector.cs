@@ -17,7 +17,7 @@ public class GrayAreaDetector : MonoBehaviour
     private List<Rect> detectedGrayRegions = new List<Rect>();
     List<GameObject> activePrefabs = new List<GameObject>(); // ✅ Διατηρούμε χειροκίνητα λίστα με τα ενεργά Prefabs
 
-    private const int MinRegionSize = 200;
+    private const int MinRegionSize = 100;
     private const float minYLimit = 224f;  // ✅ Κάτω όριο προβολής
     private const float maxYLimit = 800f;  // ✅ Πάνω όριο προβολής
 
