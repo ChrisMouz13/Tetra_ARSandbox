@@ -62,7 +62,7 @@ public class NewDepthImageView : MonoBehaviour
         // ✅ **Διόρθωση Προοπτικής με βάση το FOV της κάμερας**
         float fovY = 69f; // Τυπικό FOV για Orbbec Femto Bolt
         float aspectRatio = (float)width / height;
-        float fovX = 2f * Mathf.Atan(Mathf.Tan(fovY * Mathf.Deg2Rad / 2f) * aspectRatio) * Mathf.Rad2Deg;
+        float fovX = 2f * Mathf.Atan(Mathf.Tan(fovY * Mathf.Deg2Rad / 2f) * aspectRatio) * Mathf.Rad2Deg; 
 
         for (int y = 0; y < height; y++)
         {

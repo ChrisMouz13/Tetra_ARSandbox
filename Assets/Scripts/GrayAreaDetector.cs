@@ -52,7 +52,7 @@ public class GrayAreaDetector : MonoBehaviour
                 {
                     Rect boundingBox = GetRegionBounds(x, y, pixels, visited, width, height);
 
-                    if (boundingBox.width > 50 && boundingBox.height > 50)
+                    if (boundingBox.width > 20 && boundingBox.height > 20)
                     {
                         detectedGrayRegions.Add(boundingBox);
 
@@ -112,8 +112,8 @@ public class GrayAreaDetector : MonoBehaviour
             float uiY = (centerY / 1024f) * rawHeight - rawHeight / 2;
 
             // ✅ Φιλτράρουμε τις περιοχές που είναι εκτός της ωφέλιμης προβολής
-            if (centerY < minYLimit || centerY > maxYLimit)
-                continue;
+            //if (centerY < minYLimit || centerY > maxYLimit)
+                //continue;
 
             bool existingFound = false;
 
